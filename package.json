@@ -1,0 +1,17 @@
+{
+  "name": "buffer-scheduler",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Plant freigegebene LinkedIn-Posts automatisch in Buffer ein (Mo + Mi, 08:00 Europe/Vienna) via Buffer GraphQL API.",
+  "scripts": {
+    "introspect": "node src/buffer.mjs introspect",
+    "channels": "node src/buffer.mjs channels",
+    "schedule": "node src/index.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "gray-matter": "^4.0.3",
+    "luxon": "^3.5.0"
+  },
+  "engines": { "node": ">=18" }
+}
