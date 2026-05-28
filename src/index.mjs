@@ -2,14 +2,10 @@ import 'dotenv/config';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
-import { nextWeekdayAt } from './dates.mjs';
-import { createScheduledPost } from './buffer.mjs';
-import { renderCardPng } from './card.mjs';
-import { commitImage } from './host.mjs';
+import { weeklySlots, scheduleDraft } from './core.mjs';
 
 const QUEUE_DIR = path.resolve('queue');
 const CHANNEL_ID = process.env.BUFFER_CHANNEL_ID;
-const HOUR = Number(process.env.POST_HOUR || 8);
 
 // Lädt alle freigegebenen Posts (status: approved) aus queue/, sortiert nach `order`.
 async function loadApproved() {
@@ -32,27 +28,21 @@ async function main() {
     return;
   }
   // Slot 1 = nächster Montag, Slot 2 = nächster Mittwoch, jeweils HOUR Uhr Wien.
-  const slots = [nextWeekdayAt(1, HOUR), nextWeekdayAt(3, HOUR)];
+  const slots = weeklySlots();
   for (let i = 0; i < Math.min(approved.length, slots.length); i += 1) {
     const p = approved[i];
     const when = slots[i];
     console.log(`Plane "${p.file}" -> ${when.toFormat('ccc dd.LL.yyyy HH:mm')} (${when.zoneName})`);
-    // Bild bestimmen: feste URL (image:) ODER Zitatkarte (card:) rendern + ins Repo hosten.
-    let imageUrl = p.image || null;
-    if (!imageUrl && p.card && p.card.quote) {
-      const png = await renderCardPng(p.card);
-      imageUrl = await commitImage(png, p.file.replace(/\.md$/, '') + '.png');
-      console.log(`  Zitatkarte gerendert + gehostet: ${imageUrl}`);
-    } else if (imageUrl) {
-      console.log(`  Bild: ${imageUrl}`);
-    }
-    const res = await createScheduledPost({
+    const r = await scheduleDraft({
       channelId: CHANNEL_ID,
       text: p.text,
-      scheduledAtISO: when.toUTC().toISO(),
-      imageUrl,
+      image: p.image,
+      card: p.card,
+      when,
+      slug: p.file.replace(/\.md$/, ''),
     });
-    console.log(`  ✓ eingeplant (id ${res.id})`);
+    if (r.imageUrl) console.log(`  Bild: ${r.imageUrl}`);
+    console.log(`  ✓ eingeplant (id ${r.id})`);
   }
 }
 

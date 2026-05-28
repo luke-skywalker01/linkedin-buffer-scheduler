@@ -6,7 +6,8 @@
   "scripts": {
     "introspect": "node src/buffer.mjs introspect",
     "channels": "node src/buffer.mjs channels",
-    "schedule": "node src/index.mjs"
+    "schedule": "node src/index.mjs",
+    "serve": "node src/server.mjs"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
