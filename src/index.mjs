@@ -4,6 +4,8 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { nextWeekdayAt } from './dates.mjs';
 import { createScheduledPost } from './buffer.mjs';
+import { renderCardPng } from './card.mjs';
+import { commitImage } from './host.mjs';
 
 const QUEUE_DIR = path.resolve('queue');
 const CHANNEL_ID = process.env.BUFFER_CHANNEL_ID;
@@ -16,7 +18,7 @@ async function loadApproved() {
   for (const f of files) {
     const { data, content } = matter(await readFile(path.join(QUEUE_DIR, f), 'utf8'));
     if (String(data.status || '').toLowerCase() === 'approved') {
-      posts.push({ file: f, text: content.trim(), image: data.image || null, order: data.order ?? 99 });
+      posts.push({ file: f, text: content.trim(), image: data.image || null, card: data.card || null, order: data.order ?? 99 });
     }
   }
   return posts.sort((a, b) => a.order - b.order);
@@ -35,12 +37,20 @@ async function main() {
     const p = approved[i];
     const when = slots[i];
     console.log(`Plane "${p.file}" -> ${when.toFormat('ccc dd.LL.yyyy HH:mm')} (${when.zoneName})`);
-    if (p.image) console.log(`  Bild: ${p.image}`);
+    // Bild bestimmen: feste URL (image:) ODER Zitatkarte (card:) rendern + ins Repo hosten.
+    let imageUrl = p.image || null;
+    if (!imageUrl && p.card && p.card.quote) {
+      const png = await renderCardPng(p.card);
+      imageUrl = await commitImage(png, p.file.replace(/\.md$/, '') + '.png');
+      console.log(`  Zitatkarte gerendert + gehostet: ${imageUrl}`);
+    } else if (imageUrl) {
+      console.log(`  Bild: ${imageUrl}`);
+    }
     const res = await createScheduledPost({
       channelId: CHANNEL_ID,
       text: p.text,
       scheduledAtISO: when.toUTC().toISO(),
-      imageUrl: p.image || null, // öffentliche Bild-URL (z. B. Zitatkarte auf R2/GitHub)
+      imageUrl,
     });
     console.log(`  ✓ eingeplant (id ${res.id})`);
   }
